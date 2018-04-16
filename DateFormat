@@ -1,0 +1,57 @@
+---------------------------------------------------------------------------------------------------------------------------------------------------
+--
+-- Datumsformatierung auf SQL-Server in der Tabelle Ocub_Umsatz
+--
+---------------------------------------------------------------------------------------------------------------------------------------------------
+USE [CQP_RAC]
+DECLARE @Today DATETIME;  
+SET @Today = Getdate(); 
+set LANGUAGE German;
+GO
+SELECT DATEPART(YEAR,[KalJahr/Monat]) AS Jahr
+	  ,DATEPART(MM ,[KalJahr/Monat]) AS Monat
+	  ,DATENAME(m,[KalJahr/Monat]) as Month
+	  ,CONCAT(DATENAME(M,[KalJahr/Monat]) ,DATEPART(YEAR,[KalJahr/Monat])) as KalJahr
+	   ,[KalJahr/Monat]
+      ,[Kundennummer]
+      ,[Kundenname]
+      ,[Material]
+      ,[Materialbezeichnung]
+      ,[ProdHier]
+      ,[Nettoumsatz]
+      ,[Absatzmenge]
+  FROM [dbo].[Ocub_Umsatz]
+  WHERE [KalJahr/Monat] like '2017%'
+  order by [KalJahr/Monat] desc
+GO
+--/##############################################################################################################################################
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+--
+-- Überprüfung auf NULL Datensätze in der Tabelle dbo.Ocub_Retouren_angelegt
+--
+---------------------------------------------------------------------------------------------------------------------------------------------------
+USE [CQP_RAC]
+GO
+SELECT        Division, [Profit Center], VArt, Verkaufsbelegart, Verkaufsbeleg, Position, Positionstyp, Servicemeldung, SachverhaltID, Sachverhalt, KundeID, Kunde, LandID, Land, 
+                         Verkaufsbüro, [KalJahr/Woche], KalJahrWoche, Reparaturklasse, MaterialID, [Material 10], ProdHier, Rueckliefermenge, [Monat /Jahr], MonatJahr, 
+                         TechKaufInAusland
+FROM            dbo.Ocub_Retouren_angelegt
+WHERE        (KundeID IS NULL) OR (Verkaufsbeleg IS NULL) OR (Position IS NULL) OR (Servicemeldung IS NULL)
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+--
+-- Überprüfung auf valide Datensätze in der Tabelle dbo.Ocub_Retouren_angelegt
+--
+---------------------------------------------------------------------------------------------------------------------------------------------------
+USE [CQP_RAC]
+GO
+SELECT        Division, [Profit Center], VArt, Verkaufsbelegart, Verkaufsbeleg, Position, Positionstyp, Servicemeldung, SachverhaltID, Sachverhalt, KundeID, Kunde, LandID, Land, 
+                         Verkaufsbüro, [KalJahr/Woche], KalJahrWoche, Reparaturklasse, MaterialID, [Material 10], ProdHier, Rueckliefermenge, [Monat /Jahr], MonatJahr, 
+                         TechKaufInAusland
+FROM            dbo.Ocub_Retouren_angelegt
+--WHERE        [Monat /Jahr]='02.2017'
+order by KalJahrWoche 
+
+
