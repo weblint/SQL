@@ -1,0 +1,744 @@
+--
+--Arbeits und Entwicklungs Abfragen
+--#################################################################################################
+
+--roh
+USE [CQP_RAC]
+GO
+
+SELECT [Rep-Nr],[Retourendatum],[S1],[Kd-Nr],[Kundenname],[Anschrift],[PLZ],[Ort],[Bestellnummer],[Kodierung]
+      ,[Produkthierarchie],[Retourenklasse],[Art-Nr],[Artikel],[HK],[Menge],[FehlermengeEigen],[FehlermengeFremd],[Serialnr]
+      ,[Datecode],[Quelle],[Fehler1FORT],[Fehler2FORT],[Fehler3FART],[Fehler4FART],[Fehler5FURS],[Fehler6FURS],[FursGrpText]
+      ,[Schaltungsteil-Baugruppe],[Ausfallgrund],[Report]
+  FROM [dbo].[QW_Detailliste]
+  --ORDER BY Datecode DESC
+GO
+--###################################################################################################
+
+SELECT [Kodierung],[Artikel],[Fehler1FORT],[Fehler2FORT],[Fehler3FART],[Fehler4FART],[Fehler5FURS],[Fehler6FURS],
+		[FursGrpText],[Produkthierarchie]
+FROM [dbo].[QW_Detailliste]
+WHERE Kodierung ='TBEA'
+AND Produkthierarchie='BF3BCB'
+--###################################################################################################
+
+/* Top 10 Kodierung mit Prodhierachie
+*/
+SELECT TOP 10	[Art-Nr],[Artikel] ,[Kodierung] ,  [Produkthierarchie],
+               count(CASE [Kodierung] WHEN 'TBEA' Then 'TBEA' ELSE '' END) As  Anz 
+			  -- SUM([Produkthierarchie]) As  Hierachie  
+	FROM [dbo].[QW_Detailliste] 
+	WHERE Kodierung = 'TBEA' and Produkthierarchie='DRAAAC' 
+	
+    GROUP BY [Kodierung] ,[Art-Nr],Artikel,[Produkthierarchie]
+	order by Anz desc
+-- diesesmal mit CUBE: 
+--	WITH CUBE   ' generiert ein Resultset mit dem eine Kreuztabelle erstellt werden kann
+--  Mit einem ROLLUP-Vorgang kann die Entsprechung einer OLAP-Dimension oder -Hierarchie berechnet werden.
+
+--####################################################################################################
+
+/*Top 10 Kodierung und Artikel auszählen
+*/
+SELECT Top 10 [Art-Nr],[Artikel] ,[Kodierung] ,  [Produkthierarchie],[Datecode],[Retourendatum],
+               count(CASE [Kodierung] WHEN 'TKBA' Then 'TKBA' ELSE '' END) As  Anz 
+			    -- SUM(CASE [Art-Nr] WHEN 'TBEA' Then Anz ELSE '' END) As  Total  
+				
+	FROM [dbo].[QW_Detailliste] 
+	WHERE Kodierung = 'TKBA'  
+	
+    GROUP BY [Kodierung] ,[Art-Nr],Artikel,  [Produkthierarchie],[Datecode],[Retourendatum]
+	--order by Anz desc
+	order by [Retourendatum] desc
+--  CUBE: 
+--	WITH CUBE ' generiert ein Resultset mit dem eine Kreuztabelle erstellt werden kann
+--  Mit einem ROLLUP-Vorgang kann die Entsprechung einer OLAP-Dimension oder -Hierarchie berechnet werden. (OLAP ist ein Datenwürfel dabei stehen Zeit,Kunde und Produkt in dem Cube (slice, Dice)
+--###################################################################################################
+
+-- Kodierung  
+--
+select distinct Kodierung 
+from [dbo].[QW_Detailliste]
+
+-- Datecodefehler aufspüren
+
+select Datecode,S1 ,[Art-Nr],Artikel ,[Produkthierarchie] from [dbo].[QW_Detailliste]
+--where --Datecode  IS NULL --and Produkthierarchie ='CMPT13' 
+-- Artikel	like 'Quint%'
+order by Datecode desc
+
+--####################################################################################################
+--Alles auslesen was interessant sein könnte und suchen TBEA zwischen zwei Datecodes
+/*Top 10 Kodierung und Artikel
+*/
+SELECT  S1,[Artikel] ,[Kodierung] ,  [Produkthierarchie],[Datecode],[Retourendatum],(datediff(dd,Datecode,Retourendatum)) as Tage,
+               count(CASE [Kodierung] WHEN 'TKBA' Then 'TKBA' ELSE '' END) As  Anz ,
+			    -- SUM(CASE [Art-Nr] WHEN 'TBEA' Then Anz ELSE '' END) As  Total  
+				convert (date , SYSDATETIME ()) AS Heute 
+	FROM [dbo].[QW_Detailliste] 
+	--Einschränkung Datecode Anfang Feb. 2017 bis Ende Feb. 2017 
+	WHERE Kodierung = 'TKBA'
+	--Datum und Tage eingrenzen / begrenzen
+	--von
+	AND [Datecode] >= '2017/02/01' 
+	--AND [Datecode] <= '2017/12/27' 
+	--bis
+	AND [Retourendatum] >=  convert (date , SYSDATETIME ()) 
+
+	--AND (datediff(dd,Datecode,Retourendatum)) >35
+
+	--Eingrenzen der Produkthierachien
+	AND Produkthierarchie like 'D%' 
+	OR Produkthierarchie like 'C%'
+	
+	
+    GROUP BY S1,[Kodierung] ,[Art-Nr],Artikel,  [Produkthierarchie],[Datecode],[Retourendatum]
+	--order by Anz desc
+	order by Tage desc
+	--order by [Retourendatum] desc
+
+--#########################################################################################################################
+--Datum abfragen
+--select  [Datecode] from [dbo].[QW_Detailliste]  where [Datecode] >= '2011/02/25' and [Datecode] <= '2011/02/27'
+
+/*--Tage zwischen zwei Daten
+
+select (datediff(dd,Datecode,Retourendatum)) as tage 
+from [dbo].[QW_Detailliste]
+where Kodierung = 'TBEA' AND [Datecode] >= '2017/02/01' and [Datecode] <= '2017/02/27'  
+*/
+
+--##########################################################################################################################
+--Datumberechnungen
+-- Anzeigen Von Retourendatum x bis Heute > 35 Tage zwischenRetourendatum und Datecode
+
+--
+SELECT  S1,[Artikel] ,[Kodierung] ,  [Produkthierarchie],[Datecode],[Retourendatum],(datediff(dd,Datecode,Retourendatum)) as "Tage Zwischen dCode und rDatum"
+               --count(CASE [Kodierung] WHEN 'TKBA' Then 'TKBA' ELSE '' END) As  Anz ,
+			    -- SUM(CASE [Art-Nr] WHEN 'TBEA' Then Anz ELSE '' END) As  Total  
+				-- convert (date , SYSDATETIME ()) AS Heute 
+	FROM [dbo].[QW_Detailliste] 
+	--Einschränkung Retourendatum ab Anfang Feb. 2017 bis heute und Zeit zwischen Datecode und Retoure > 35 Tage
+	WHERE  
+	 [Retourendatum] >= '2017/02/01' 
+	 AND [Retourendatum] <=  convert (date , SYSDATETIME ())
+	 AND (datediff(dd,Datecode,Retourendatum)) >35
+
+    GROUP BY S1,[Kodierung] ,[Art-Nr],Artikel,  [Produkthierarchie],[Datecode],[Retourendatum]
+	ORDER BY "Tage Zwischen dCode und rDatum" DESC
+
+--######################################################################################################################
+-- Abfrage für eine Kreuztabelle (with Cube)
+--Sollte das eine Procedure werden sind 2 Parameter erforderlich
+SELECT  S1,[Artikel] ,[Kodierung] ,  [Produkthierarchie],[Datecode],[Retourendatum],(datediff(dd,Datecode,Retourendatum)) as "Tage Zwischen dCode und rDatum"
+               --count(CASE [Kodierung] WHEN 'TKBA' Then 'TKBA' ELSE '' END) As  Anz ,
+			    
+	FROM [dbo].[QW_Detailliste] 
+	
+	WHERE  
+	 [Retourendatum]  = '2017/12/21' 
+	 AND [Retourendatum] <=  convert (date , SYSDATETIME ())
+	 AND (datediff(dd,Datecode,Retourendatum)) >1 
+
+    GROUP BY S1,[Kodierung] ,[Art-Nr],Artikel,  [Produkthierarchie],[Datecode],[Retourendatum]
+--	WITH CUBE
+--######################################################################################################################
+
+-- Abfrage für eine Kreuztabelle (with Cube) Abfrage zwischen zwei Retouredatm
+-- ## Hinweis: Datecode hat in 11 Datensätze falsche Einträge!! 2201-12-17 00:00:00.000 ##
+--Sollte das eine Procedure werden sind 2 Parameter erforderlich
+SELECT  S1,[Artikel] ,[Kodierung] ,  [Produkthierarchie],[Datecode],[Retourendatum],
+		(datediff(dd,Datecode,Retourendatum)) as "Tage Zwischen dCode und rDatum"
+			    
+	FROM [dbo].[QW_Detailliste] 
+	
+	WHERE  
+	 [Retourendatum]  BETWEEN '2018/01/01' AND '2018/01/10'
+	 AND [Retourendatum] <=  convert (date , SYSDATETIME ())
+	 AND (datediff(dd,Datecode,Retourendatum)) >1 
+
+	 GROUP BY  S1,[Kodierung] ,[Art-Nr],Artikel,  [Produkthierarchie],[Datecode],[Retourendatum]
+    --GROUP BY ALL S1,[Kodierung] ,[Art-Nr],Artikel,  [Produkthierarchie],[Datecode],[Retourendatum]
+	--GROUP BY S1,[Kodierung] ,[Art-Nr],Artikel,  [Produkthierarchie],[Datecode],[Retourendatum] WITH ROLLUP
+	--GROUP BY S1,[Kodierung] ,[Art-Nr],Artikel,  [Produkthierarchie],[Datecode],[Retourendatum] WITH CUBE
+
+--######################################################################################################################
+--
+-- Konsolidierte Werte aus Retourenklasse und Kodierung (NULL Werte) herausgefiltert 
+--
+SELECT *
+FROM [dbo].[QW_Detailliste] 
+WHERE (((Kodierung) 
+		In ('AUAK','RRUF','TBEA ','TBHA ','TBL1 ','TBVA ','TDLR ','TDVA ','TKBA ','TKVP ','TRRP ','TRSM ','TRVA ','TTBK','TTBM','TTBS','TWBA') 
+		And (Kodierung) Not In ('')) 
+		And (([Retourenklasse]) In (100,300,301,600,601))
+		And ([Retourenklasse]) Not In (''));
+--
+--
+--######################################################################################################################
+--Test Query
+SELECT * 
+from [dbo].[QW_Detailliste]
+WHERE [Serialnr] BETWEEN '1121401474' and '1351420480'
+--
+--Test Query
+SELECT * 
+from [dbo].[QW_Detailliste]
+WHERE [Produkthierarchie] = 'AAAEJB'
+OR Kodierung ='AUAK'
+--
+---------------------------------------------------------------------------------------------------------
+--
+/* Codebeispiel
+) src
+pivot (count(value) for value in ([Target], [Action], [Fail])) as piv
+
+*/
+--
+-- Pivot Table ordered by Kd-Nr
+USE [CQP_RAC]
+GO
+SELECT [415174]as PxC,[509158]as PxC_NL ,[520185] as PxC_Ireland,[47119] as Nordex  
+FROM 
+	(
+	SELECT *
+	FROM [dbo].[QW_Detailliste]  AS SourceTable
+	WHERE Kodierung = 'AUAK'
+	) p
+	PIVOT (SUM([Menge]) FOR  [Menge] IN ("415174","509158","520185","47119")) AS pvt  
+GO
+
+SELECT   Kodierung,   
+             -- SUM(CASE '415174' WHEN '415174' Then Menge ELSE 0 END) As '415174',  
+             -- SUM(CASE '509158' WHEN '509158' Then Menge ELSE 0 END) As PxC_NL,  
+              SUM(CASE '520185' WHEN '520185' Then Menge ELSE 0 END) As PxC_Ireland,
+      -- für jede Zeile wird eine Summenspalte hinzugefügt:
+      SUM(Menge) As Summe  
+FROM [dbo].[QW_Detailliste] 
+GROUP BY Kodierung  
+
+--######################################################################################################################
+--
+-- Testabfrage als Basis für eine SP mit allen Parametern
+--
+SELECT DISTINCT * 
+	FROM [dbo].[QW_Detailliste]
+	WHERE Kundenname='Rovema GmbH' --1
+	AND Serialnr = '1121267628' --2
+	AND [Rep-Nr]='3100188109-1' 	--3
+	AND [Kd-Nr]='526923'		--4
+	AND Produkthierarchie='CK6422'	--5
+	AND Kodierung='TBEA'	--6
+	AND Retourenklasse='300'		--7
+	AND [Art-Nr]='2900545-06'	--8
+	AND Retourendatum = '2014.12.04'
+
+
+--minimale erwartete Parameter
+SELECT  * 
+	FROM [dbo].[QW_Detailliste]
+	--WHERE  [Kd-Nr]='520185'
+	 where Kodierung ='RRUF'
+	 and Retourendatum between '2018.01.01' and '2018.12.31'				 
+	 			 
+--auszählen nach Datum
+
+SELECT DISTINCT  Kodierung,   
+                  --count(CASE 'AUAK' WHEN 'AUAK' Then Menge ELSE 0 END) As Alle_TGs,
+      -- für jede Zeile wird eine Summenspalte hinzugefügt:
+      count(Kodierung) As Summe  
+FROM [dbo].[QW_Detailliste] 
+WHERE Retourendatum between '2017.01.01' and '2017.12.31'
+GROUP BY  Kodierung 
+WITH CUBE
+
+SELECT DISTINCT  Retourenklasse,   
+                  count(CASE 'NULL' WHEN 'NULL' Then Menge ELSE 0 END) As Alle_TGs,
+      -- für jede Zeile wird eine Summenspalte hinzugefügt:
+      count(Retourenklasse) As Summe  
+FROM [dbo].[QW_Detailliste] 
+WHERE Retourendatum between '2017.01.01' and '2017.12.31'
+GROUP BY  Retourenklasse 
+WITH CUBE
+
+--
+-- Auszählen der Retourenklassen zwischen zwei Daten
+SELECT DISTINCT  Retourenklasse, Retourendatum, S1, 
+                  --count(CASE 'NULL' WHEN 'NULL' Then Menge ELSE 0 END) As Alle_TGs,
+      -- für jede Zeile wird eine Summenspalte hinzugefügt:
+      count(Retourenklasse) As Summe  
+FROM [dbo].[QW_Detailliste] 
+WHERE Retourendatum between '2018.01.01' and '2018.12.31'
+GROUP BY  Retourenklasse, Retourendatum ,S1
+Having (Retourenklasse in (100,300,301,600,601))
+
+--
+
+SELECT DISTINCT  Produkthierarchie,   
+                -- count(CASE 'AUAK' WHEN 'AUAK' Then Menge ELSE 0 END) As Alle_TGs,
+      -- für jede Zeile wird eine Summenspalte hinzugefügt:
+      count(Produkthierarchie) As Summe  
+FROM [dbo].[QW_Detailliste] 
+WHERE Retourendatum between '2018.01.01' and '2018.12.31'
+GROUP BY  Produkthierarchie 
+WITH CUBE
+
+--
+--auszählen wie oft die Produkthierachie zwischen zwei Daten vorkommt
+select DISTINCT Produkthierarchie,count(Produkthierarchie) As ProdHierachie  
+from [dbo].[QW_Detailliste] 
+WHERE Retourendatum between '2018.01.01' and '2018.12.31'
+group by Produkthierarchie
+HAVING (COUNT([Produkthierarchie]) > 1)
+
+--
+-- auszählen Anzahl Produktierachie zwischen zwei Datumsbereichen
+-- meine Produkthierachie ist: DRECAA, DRAABC, DRAAAC, DRAAZA,DRBAAH, DREAAA, DREBAD,DREABA
+--**Top**
+SELECT DISTINCT  Produkthierarchie,
+      -- für jede Zeile wird eine Summenspalte hinzugefügt:
+      count(Produkthierarchie) As Anzahl  
+FROM [dbo].[QW_Detailliste] 
+WHERE Retourendatum between '2018.01.01' and Getdate()
+GROUP BY  Produkthierarchie  
+Having (Produkthierarchie in ('DRECAA','DRAABC','DRAAAC','DRAAZA','DRBAAH','DREAAA','DREBAD','DREABA'))
+GO
+SELECT DISTINCT  Produkthierarchie,Artikel,
+      -- für jede Zeile wird eine Summenspalte hinzugefügt:
+      count(Produkthierarchie) As Anzahl  
+FROM [dbo].[QW_Detailliste] 
+WHERE Retourendatum between '2018.01.01' and Getdate()
+GROUP BY  Produkthierarchie ,Artikel 
+Having (Produkthierarchie in ('DRECAA','DRAABC','DRAAAC','DRAAZA','DRBAAH','DREAAA','DREBAD','DREABA'))
+
+---########################################### [QW_Detailliste] ###################################################################
+
+--**TOP**
+SELECT DISTINCT Kundenname, Produkthierarchie,S1,Retourenklasse,[Rep-Nr],[Art-Nr],Artikel,Fehler2FORT,Fehler4FART,Fehler6FURS,
+      -- für jede Zeile wird eine Summenspalte hinzugefügt:
+      count(Produkthierarchie) As Anzahl  
+FROM [dbo].[QW_Detailliste] 
+WHERE Retourendatum between '2018.01.01' and Getdate()
+AND Fehler2FORT <>''
+GROUP BY  Kundenname,Produkthierarchie ,S1,Retourenklasse,[Rep-Nr],[Art-Nr],Artikel,Fehler2FORT,Fehler4FART,Fehler6FURS
+Having (Produkthierarchie in ('DRECAA','DRAABC','DRAAAC','DRAAZA','DRBAAH','DREAAA','DREBAD','DREABA'))
+--
+--############################################### [QW_Detailliste] #######################################################################
+
+select Retourenklasse, s1
+from [dbo].[QW_Detailliste] 
+where Retourendatum =' '
+order by Retourenklasse desc 
+
+select Retourendatum,Kundenname,Serialnr,[Rep-Nr],[Art-Nr],Artikel 
+from [dbo].[QW_Detailliste] 
+where [Kd-Nr] ='41258'
+and [Art-Nr] like '%2985576%'
+--
+--
+--################################################# [QW_Material] #####################################################################################
+--
+--Material und Serialnummern ILC370 /390 an 
+-- SAP Abfrage: ZQMSNRWA
+--
+--SELECT [Serialnummer],[Equipment],[Material],[Materialkurztext],[Ptyp],[Lieferung],[Pos],[Verkaufsb#],[KdA-Pos],[Menge],[BME],[BME1]
+--      ,[Debitor],[Name 1],[Name 2],[Postleitz#],[Ort],[Straße],[Telefon-1],[Telefaxnummer],[Rg],[VKGr],[Bestellnummer],[Bestelldat]
+--      ,[BsArt],[VkBür],[VBTyp],[VArt],[T],[EQUI-LVORM] ,[Angel#am],[B],[I],[Stat],[Status],[VkOrg],[FaktPlan]
+--
+SELECT [Serialnummer],[Material],[Materialkurztext],[Verkaufsb#],[Menge],[Debitor],[Name 1],[Postleitz#],[Ort],[Straße],[Telefon-1],
+		[Bestellnummer],[Bestelldat]
+FROM [dbo].[QW_Material]
+where [Material] like '2985314%'
+AND Bestelldat between '2015-02-10'AND '2016-09-07' 
+AND [Debitor] NOT IN ('153193')   
+GROUP BY [Serialnummer],[Material],[Materialkurztext],[Verkaufsb#],[Menge],[Debitor],[Name 1],[Postleitz#],[Ort],[Straße],[Telefon-1],
+		[Bestellnummer],[Bestelldat]
+GO
+
+select sum([Menge]) AS Anz
+FROM [dbo].[QW_Material]
+where Debitor = '153193'
+
+
+--zusammenfassen:
+SELECT [Serialnummer],[Material],[Materialkurztext],[Verkaufsb#],[Menge] AS M,[Debitor],[Name 1],[Postleitz#],[Ort],[Straße],[Telefon-1],
+		[Bestellnummer],[Bestelldat]
+FROM [dbo].[QW_Material]
+where Debitor = '153193'(select sum([Menge]) AS Anzahl
+		FROM [dbo].[QW_Material]
+		where Debitor = '153193')
+
+GO
+
+--Dublikate auslesen
+SELECT[Materialkurztext] ,[Serialnummer], count(CASE 'NULL' WHEN 'NULL' Then Menge ELSE 0 END) As Anzahl
+FROM [dbo].[QW_Material]
+WHERE Materialkurztext ='RFC 470 PN 3TX'
+GROUP BY Materialkurztext,[Serialnummer] 
+HAVING (COUNT(Materialkurztext) > 1)
+
+USE [CQP_RAC]
+GO
+
+--DELETE FROM [dbo].[QW_Material]
+--      WHERE Materialkurztext ='RFC 470 PN 3TX'
+--GO
+
+--
+--############################################## [QW_Detailliste] ########################################################################
+--
+---------------------------------------------
+--Ermittlung der Produkthierachien (Dublikate count>1 oder einzelne Having (Produkthierachie in...)
+
+select DISTINCT Produkthierarchie,
+	count(Produkthierarchie) As Summe 
+from [dbo].[QW_Detailliste] 
+where Retourendatum between '2018.01.01' and '2018.12.31'
+GROUP BY  Produkthierarchie --,Retourendatum  
+HAVING (COUNT([Produkthierarchie]) > 1 )
+--Having (Produkthierarchie in  ('AAAAAA','AAAFAB','CMPT33','CMPQ13'))
+
+---------------------------------------------
+
+--
+
+--############################################## [QW_Material] ########################################################################
+--ELITE - RAM-Fehler finden
+--(Elite-RAM seit 26.09.2016 gesperrt) danach umstieg auf MICRON
+--
+SELECT [Serialnummer],[Material],[Materialkurztext],[Verkaufsb#],[Menge] AS M,[Debitor],[Name 1],[Postleitz#],[Ort],[Straße],[Telefon-1],
+		[Bestellnummer],[Bestelldat]
+
+FROM [dbo].[QW_Material]
+
+ WHERE Bestelldat between '2015-02-10'AND '2016-09-07' 
+	--[Material] like '2985314%'
+	--AND [Debitor] NOT IN ('153193') 
+	--AND Debitor = '480345' 
+AND Serialnummer='1356966392' --Fa.Littau
+
+GROUP BY [Serialnummer],[Material],[Materialkurztext],[Verkaufsb#],[Menge],[Debitor],[Name 1],[Postleitz#],[Ort],[Straße],[Telefon-1],
+		[Bestellnummer],[Bestelldat]
+GO
+
+
+/*
+ILC330
+ILC370
+ILC350
+ILC390
+*/
+
+SELECT [Serialnummer],[Material],[Materialkurztext],[Verkaufsb#],[Menge] AS M,[Debitor],[Name 1],[Postleitz#],[Ort],[Straße],[Telefon-1],
+		[Bestellnummer],[Bestelldat]
+FROM [dbo].[QW_Material]
+where Materialkurztext like 'ILC 330%'
+
+
+USE [CQP_RAC]
+GO
+
+--SELECT [Serialnummer],[Equipment],[Material],[Materialkurztext],[Ptyp],[Lieferung],[Pos],[Verkaufsb#],[KdA-Pos],[Menge],[BME],[BME1],[Debitor]
+      ,[Name 1],[Name 2],[Postleitz#],[Ort],[Straße],[Telefon-1],[Telefaxnummer],[Rg],[VKGr],[Bestellnummer],[Bestelldat],[BsArt],[VkBür],[VBTyp]
+      ,[VArt],[T],[EQUI-LVORM],[Angel#am],[B],[I],[Stat],[Status],[VkOrg],[FaktPlan], sum(Menge) as Gesamt
+
+SELECT sum(Menge) As Ges,[Name 1],Debitor ,Equipment,[Serialnummer] 
+
+  FROM [dbo].[QW_Material]  
+   
+  WHERE Bestelldat between '2015-02-10' AND '2016-09-07' 
+ 
+  --AND [Name 1] like'J%'
+  
+  GROUP BY  [Name 1] ,[Serialnummer] ,Equipment,Debitor,Menge
+  
+  HAVING (COUNT(Menge) > 1 )
+GO
+
+--############################################# [QW_Detailliste] #########################################################################
+--ACCESS Maske
+/* ? Geräte mit ArtikelNr sind mit Fehler1FORT“ oder „Fehler2FORT“) 
+oder Baugruppe xyz („Schaltungsteil-Baugruppe“)ausgefallen?
+
+Einschränkungen:
+Zeitraum Retourendatum („Retourendatum“)
+Bestellnummer („Bestellnummer“)Kundennummer („Kd-Nr“)
+*/
+SELECT [Rep-Nr],[Retourendatum],[S1],[Kd-Nr],[Kundenname],[Anschrift],[PLZ],[Ort],[Bestellnummer],[Kodierung]
+      ,[Produkthierarchie],[Retourenklasse],[Art-Nr],[Artikel],[HK],[Menge],[FehlermengeEigen],[FehlermengeFremd],[Serialnr]
+      ,[Datecode],[Quelle],[Fehler1FORT],[Fehler2FORT],[Fehler3FART],[Fehler4FART],[Fehler5FURS],[Fehler6FURS],[FursGrpText]
+      ,[Schaltungsteil-Baugruppe],[Ausfallgrund],[Report]
+  FROM [dbo].[QW_Detailliste]
+  WHERE [Kd-Nr]=509158
+  and [Art-Nr] like '2985314-%'
+  and [Retourendatum] between '2017-01-01' and Getdate()
+  --and Serialnr in('1352227866')
+  ORDER by Retourendatum desc
+
+  select [Art-Nr] as A
+  from [dbo].[QW_Detailliste] as B
+	WHERE [Art-Nr]  = (select [Art-Nr] as A from [dbo].[QW_Detailliste] where [Kd-Nr]=236418 )
+
+--######################################### [QW_Material] ###########################################################
+--Wieviele Baugruppen mit welcher Revision wurden von 1.1.2017 bis 23.2.2018 ausgeliefert
+USE [CQP_RAC]
+GO
+
+--SELECT  count(Materialkurztext) As Anzahl,Materialkurztext ,Material,[Name 1],FIRST_VALUE (Bestelldat) OVER (order by Bestelldat) as BestDat
+SELECT  count(Materialkurztext) As "Verkaufte Anzahl", Materialkurztext-- ,Material, [Name 1]
+from [dbo].[QW_Material]
+  where Materialkurztext like '%ILC%'
+  and Bestelldat between '2017.01.01' and Getdate()
+ -- and Material like  ('%19' )
+--  or Material like ('%18' )
+ -- or Material like ('%17' )
+ -- or Material like ('%16' )
+  group by Materialkurztext --,[Name 1],Material
+  HAVING (COUNT(Materialkurztext) > 1 )
+GO
+
+--über alles...
+
+SELECT  count(Materialkurztext) As "Verkaufte Anzahl", Materialkurztext-- ,Material, [Name 1]
+from [dbo].[QW_Material]
+  where Bestelldat between '2017.01.01' and Getdate()
+ -- and Material like  ('%19' )
+--  or Material like ('%18' )
+ -- or Material like ('%17' )
+ -- or Material like ('%16' )
+  group by Materialkurztext --,[Name 1],Material
+  HAVING (COUNT(Materialkurztext) > 1 )
+GO
+
+--? Mengen und Artikel
+	Select count(Materialkurztext) As "Verkaufte Anzahl" ,Materialkurztext 
+	from [dbo].[QW_Material]
+	 --where Materialkurztext like 'ILC%'
+	 --and Bestelldat between '2017.01.01' and Getdate()
+	 group by Materialkurztext  
+	 HAVING (COUNT(Materialkurztext) > 1 )
+
+
+select Materialkurztext 
+from [dbo].[QW_Material]
+where Materialkurztext like 'ILC%'
+
+--###############################################################################################
+--
+--Externe Lieferanten, wieviel Artikel vom wem?
+--
+SELECT count([Design Responsibility]) As "Artikel Externer Lieferant" ,[Design Responsibility]--,[Material Short Description]
+  FROM [dbo].[QW_Ext_Hersteller_PSU]
+  group by [Design Responsibility] --,[Material Short Description]
+  having (count([Design Responsibility])>1)
+GO
+
+SELECT [Design Responsibility] As "Artikel Externer Lieferant" ,[Design Responsibility],[Material Short Description]
+  FROM [dbo].[QW_Ext_Hersteller_PSU]
+ -- group by [Design Responsibility] --,[Material Short Description]
+GO
+
+--
+--Merge Externe Lieferanten in die Detailliste
+--
+SELECT DISTINCT    dbo.QW_Detailliste.[Rep-Nr],dbo.QW_Detailliste.S1, dbo.QW_Detailliste.[Art-Nr], dbo.QW_Detailliste.Artikel, dbo.QW_Ext_Hersteller_PSU.[Design Responsibility], dbo.QW_Ext_Hersteller_PSU.[Material Short Description],dbo.QW_Detailliste.Serialnr,dbo.QW_Detailliste.Fehler1FORT, dbo.QW_Detailliste.Fehler2FORT, 
+                         dbo.QW_Detailliste.Fehler3FART, dbo.QW_Detailliste.Fehler4FART, dbo.QW_Detailliste.Fehler5FURS, dbo.QW_Detailliste.Fehler6FURS, dbo.QW_Detailliste.FursGrpText
+--FROM            dbo.QW_Ext_Hersteller_PSU FULL OUTER JOIN
+FROM            dbo.QW_Ext_Hersteller_PSU RIGHT OUTER JOIN
+			   dbo.QW_Detailliste ON dbo.QW_Ext_Hersteller_PSU.[Material Short Description] = dbo.QW_Detailliste.Artikel
+
+where [Design Responsibility]like'PxC%'
+and [Rep-Nr]like'3100094310%' 
+
+
+select * from dbo.QW_Detailliste
+where [Rep-Nr]like'3100094310-22' 
+--[Art-Nr] ='2866378-02'
+--and [Rep-Nr]='3100253591'
+
+--######################################################################################################
+
+--Abfrage Detailliste mit übereinstimmender Mat-Nr in Ext_Hersteller PSU
+
+--select [Art-Nr],Artikel ,[Rep-Nr] ,dbo.QW_Detailliste.S1,[Kd-Nr],Kundenname
+select [Art-Nr],Artikel ,[Rep-Nr],[Retourendatum],[S1],[Kd-Nr],[Kundenname],[Anschrift],[PLZ],[Ort],[Bestellnummer],[Kodierung]
+      ,[Produkthierarchie],[Retourenklasse],[Art-Nr],[Artikel],[HK],[Menge],[FehlermengeEigen],[FehlermengeFremd],[Serialnr]
+      ,[Datecode],[Quelle],[Fehler1FORT],[Fehler2FORT],[Fehler3FART],[Fehler4FART],[Fehler5FURS],[Fehler6FURS],[FursGrpText]
+      ,[Schaltungsteil-Baugruppe]
+from
+dbo.QW_Detailliste
+--where [Art-Nr] like'290823%'
+where [Art-Nr] =
+	(select dbo.QW_Ext_Hersteller_PSU.[Material-No#]
+		from dbo.QW_Ext_Hersteller_PSU
+		where [Material-No#] = '2908%')
+
+--#######################################################################################################
+--Anzahl Ext. Lieferant (als Func)
+execute [sp_Externe_Lieferanten]
+
+----Anzahl Ext. Lieferant (als Query)
+SELECT count([Design Responsibility]) As "Externer_Lieferant" 
+      ,[Design Responsibility]
+  FROM [dbo].[QW_Ext_Hersteller_PSU]
+  group by [Design Responsibility]
+  having (count([Design Responsibility])>1)
+GO
+--
+--Suche alle Geräte mit Fehlerxx
+--Fehler T9
+execute [sp_QW_CMC_Select_all] '%T9%',''
+
+--1)
+SELECT DISTINCT     dbo.QW_Detailliste.[Rep-Nr],dbo.QW_Detailliste.[Art-Nr], dbo.QW_Detailliste.Artikel, dbo.QW_Ext_Hersteller_PSU.[Design Responsibility],
+					dbo.QW_Detailliste.[Kd-Nr], Kundenname,dbo.QW_Detailliste.Fehler1FORT, dbo.QW_Detailliste.Fehler2FORT, 
+                    dbo.QW_Detailliste.Fehler3FART, dbo.QW_Detailliste.Fehler4FART, dbo.QW_Detailliste.Fehler5FURS, dbo.QW_Detailliste.Fehler6FURS, 
+					dbo.QW_Detailliste.FursGrpText
+
+FROM            dbo.QW_Ext_Hersteller_PSU FULL OUTER JOIN --wie RIGHT JOIN
+				--dbo.QW_Ext_Hersteller_PSU LEFT OUTER  JOIN --Fehler1 und Fehler2 werden gefüllt,Kunden und Artikel leer
+				--dbo.QW_Ext_Hersteller_PSU RIGHT OUTER JOIN --wie RIGHT JOIN
+				--dbo.QW_Ext_Hersteller_PSU RIGHT JOIN --Kunden teilw leer, Artikel leer, Fehler gefüllt
+				--dbo.QW_Ext_Hersteller_PSU LEFT JOIN --Kunden leer, Fehler gefüllt
+
+                --dbo.QW_Detailliste ON dbo.QW_Ext_Hersteller_PSU.[Material-No#] = dbo.QW_Detailliste.[Art-Nr]
+				dbo.QW_Detailliste ON dbo.QW_Ext_Hersteller_PSU.[Material Short Description] = dbo.QW_Detailliste.[Artikel]
+
+where Fehler2FORT like'Z-Diode'
+--and [Rep-Nr]='3100213703'
+--and Fehler1FORT like '%10%'
+-- and Fehler2FORT like'Z-Diode'
+--and Fehler3FART like'%%'
+--and Fehler4FART like'%%'
+--and Fehler5FURS like'%FURSA010-0109%'
+--and Fehler6FURS like'Insect%'
+AND [Design Responsibility] <> ''
+--and [Design Responsibility] like'%%'
+
+--2) auf Ext.Lieferant
+SELECT DISTINCT 
+                         dbo.QW_Detailliste.[Rep-Nr], dbo.QW_Detailliste.[Art-Nr], dbo.QW_Detailliste.Artikel, dbo.QW_Ext_Hersteller_PSU.[Design Responsibility], dbo.QW_Detailliste.[Kd-Nr], dbo.QW_Detailliste.Kundenname, 
+                         dbo.QW_Detailliste.Fehler1FORT, dbo.QW_Detailliste.Fehler2FORT, dbo.QW_Detailliste.Fehler3FART, dbo.QW_Detailliste.Fehler4FART, dbo.QW_Detailliste.Fehler5FURS, dbo.QW_Detailliste.Fehler6FURS, 
+                         dbo.QW_Detailliste.FursGrpText
+
+FROM            dbo.QW_Ext_Hersteller_PSU FULL OUTER JOIN
+										--RIGHT OUTER JOIN --select all from Detailliste
+										--LEFT OUTER JOIN --select all from PSU_Hersteller
+										--FULL OUTER JOIN --alle möglichen
+										--INNER JOIN      --nur Verknüpfte Felder gleich
+                         dbo.QW_Detailliste ON dbo.QW_Ext_Hersteller_PSU.[Material Short Description] = dbo.QW_Detailliste.Artikel
+--WHERE       
+--and (dbo.QW_Detailliste.Fehler1FORT <>'')
+--WHERE (dbo.QW_Detailliste.Fehler2FORT like '%Seitenwand%')
+--(dbo.QW_Ext_Hersteller_PSU.[Design Responsibility] <> '')
+
+
+-----------------------------------------------------------------------------------------------------------------------
+--TRR Ergebnisse hinzufügen
+USE [CQP_RAC]
+GO
+
+SELECT [ID]
+      ,[Debitor]
+      ,[TRR]
+      ,[Menge]
+      ,[PPM]
+  FROM [dbo].[QW_TRR_Ergebnis]
+GO
+
+USE [CQP_RAC]
+GO
+
+UPDATE [dbo].[QW_TRR_Ergebnis]
+   SET [ID] = '1'
+      ,[Debitor] = '164810'
+      ,[TRR] = '3'
+      ,[Menge] = '83856'
+      ,[PPM] = '36'
+ WHERE [ID]='1'
+GO
+
+UPDATE [dbo].[QW_TRR_Ergebnis]
+   SET [ID] = '2'
+      ,[Debitor] = '335649'
+      ,[TRR] = '406'
+      ,[Menge] = '326501'
+      ,[PPM] = '1.243'
+ WHERE [ID]='2'
+GO
+
+--##################################################################################################################################
+--Kunde TRR, PPM ... was ist auffällig und kam zurück?
+--Momentan sind die Debitoren: 164810 (I&W) und 335649 (Jensen) in der Datenbank
+
+SELECT        dbo.QW_TRR_Ergebnis.Debitor, dbo.QW_TRR_Ergebnis.TRR, dbo.QW_TRR_Ergebnis.Menge, dbo.QW_TRR.VKM, dbo.QW_TRR.TR, dbo.QW_TRR.Artikel
+FROM            dbo.QW_TRR INNER JOIN
+                dbo.QW_TRR_Ergebnis ON dbo.QW_TRR.Auftraggeber = dbo.QW_TRR_Ergebnis.Debitor
+WHERE        (NOT (dbo.QW_TRR.TR IS NULL)) AND (NOT (dbo.QW_TRR.VKM IS NULL))
+and dbo.QW_TRR.Auftraggeber like 'mipro%'
+
+SELECT        dbo.QW_TRR_Ergebnis.Debitor, dbo.QW_TRR_Ergebnis.TRR, dbo.QW_TRR_Ergebnis.Menge, dbo.QW_TRR.VKM, dbo.QW_TRR.TR, dbo.QW_TRR.Artikel
+FROM            dbo.QW_TRR INNER JOIN
+                         dbo.QW_TRR_Ergebnis ON dbo.QW_TRR.Auftraggeber = dbo.QW_TRR_Ergebnis.Debitor
+WHERE        (NOT (dbo.QW_TRR.TR IS NULL)) AND (NOT (dbo.QW_TRR.VKM IS NULL)) AND (dbo.QW_TRR_Ergebnis.Debitor = N'335649')
+ORDER BY VKM desc
+
+--##################################################################################################################################
+--Top10 Material ab 2018
+execute [sp_QW_Top5_ILC] '01.01.2018'
+
+--Fehler T9
+execute [sp_QW_CMC_Select_all] '%T9%',''
+
+--##################################################################################################################################
+--PPM Berechnung
+SELECT     dbo.QW_TRR.Artikel,dbo.QW_TRR.Material,dbo.QW_TRR_Ergebnis.Debitor,dbo.QW_TRR.VKM,dbo.QW_TRR.TR,ROUND((sum((TR/VKM))*1000000),3) AS PPM
+FROM            dbo.QW_TRR FULL OUTER JOIN
+                         dbo.QW_TRR_Ergebnis ON dbo.QW_TRR.Auftraggeber = dbo.QW_TRR_Ergebnis.Debitor
+WHERE        (NOT (dbo.QW_TRR.TR IS NULL)) 
+AND (NOT (dbo.QW_TRR.VKM IS NULL))
+Group By dbo.QW_TRR.Artikel,dbo.QW_TRR.Material,dbo.QW_TRR_Ergebnis.Debitor,dbo.QW_TRR.VKM,dbo.QW_TRR.TR
+
+--
+SELECT       count(dbo.QW_TRR.TR) AS TRR, dbo.QW_TRR.Artikel, dbo.QW_TRR.Auftraggeber,Debitor
+FROM            dbo.QW_TRR
+WHERE        TR<>'0'
+group by dbo.QW_TRR.TR,dbo.QW_TRR.Artikel, dbo.QW_TRR.Auftraggeber,Debitor order by Debitor desc
+
+
+--
+--TRR aller Debitor
+SELECT        sum(convert(bigint,TR)) as TRR_Gesamt,Debitor
+FROM            dbo.QW_TRR
+GROUP by dbo.QW_TRR.Debitor
+
+--######################################################### TRR Berechnung #################################################################
+
+------------------ Einfügen in TRR_Ergebnis Tabelle --------------------------
+USE [CQP_RAC]
+GO
+
+SELECT [Material]
+      ,[Artikel]
+      ,[Auftraggeber]
+      ,[Debitor]
+      ,[TR]
+      ,[VKM]
+  FROM [dbo].[QW_TRR]
+GO
+
+--  TRR=(Fehler(TR) / Geliefert (VKM))*1000000
+
+USE [CQP_RAC]
+GO
+
+INSERT INTO [dbo].[QW_TRR_Ergebnis]
+			SELECT        Auftraggeber,Debitor,sum(convert(bigint,TR)) as TRR,sum(VKM)  , ROUND((sum((TR/VKM))*1000000),3) AS PPM
+			FROM            dbo.QW_TRR
+			where Debitor <> ''
+			GROUP by dbo.QW_TRR.Debitor, Auftraggeber,VKM
+
+SELECT *
+FROM QW_TRR_Ergebnis
+
+--##################################################################################################################################
