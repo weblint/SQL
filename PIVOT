@@ -1,0 +1,139 @@
+USE [CQP_RAC]
+GO
+
+SELECT [Schaltungsteil-Baugruppe]
+FROM [dbo].[QW_Detailliste]
+GO
+
+
+USE [CQP_RAC]
+GO
+
+SELECT [Rep-Nr],[Retourendatum],[S1],[Kd-Nr],[Kundenname],[Anschrift],[PLZ],[Ort],[Bestellnummer],[Kodierung]
+      ,[Produkthierarchie],[Retourenklasse],[Art-Nr],[Artikel],[HK],[Menge],[FehlermengeEigen],[FehlermengeFremd],[Serialnr]
+      ,[Datecode],[Quelle],[Fehler1FORT],[Fehler2FORT],[Fehler3FART],[Fehler4FART],[Fehler5FURS],[Fehler6FURS],[FursGrpText]
+      ,[Schaltungsteil-Baugruppe],[Ausfallgrund],[Report]
+FROM [dbo].[QW_Detailliste]
+GO
+-- Pivot Table ordered by PRODUCT
+USE [CQP_RAC]
+GO
+SELECT [Schaltungsteil-Baugruppe] as Baugruppe
+FROM 
+	(
+	SELECT [Art-Nr],[Artikel],[Schaltungsteil-Baugruppe]
+	FROM [dbo].[QW_Detailliste]  AS SourceTable
+	WHERE [Schaltungsteil-Baugruppe] > 1
+	) up
+	PIVOT (count([Art-Nr]) FOR  Artikel IN ("9153819")) AS pvt  
+GO
+
+
+-- Pivot Table ordered by PRODUCT
+SELECT PRODUCT, FRED, KATE
+FROM (
+SELECT CUST, PRODUCT, QTY
+FROM Product) up
+PIVOT (SUM(QTY) FOR CUST IN (FRED, KATE)) AS pvt
+ORDER BY PRODUCT
+GO
+
+
+-- Pivot Table ordered by PRODUCT
+USE [CQP_RAC]
+GO
+SELECT [23702],[37687] ,[9156537],[9223008],[9153819]
+FROM 
+	(
+	SELECT [Schaltungsteil-Baugruppe]
+	FROM [dbo].[QW_Detailliste]  AS SourceTable
+--	WHERE [Schaltungsteil-Baugruppe] > 1
+	) p
+	PIVOT (count([Schaltungsteil-Baugruppe]) FOR  [Schaltungsteil-Baugruppe] IN ("23702","37687","9156537","9223008","9153819")) AS pvt  
+GO
+
+--#######################################################################################################
+--Codebeispiel
+/*
+Hi there
+
+I am fairly new to SQL Server TSQL and I have a strong MS Access background.
+I can't get my head around pivot queries is TSQL.
+
+I have 3 Colums with data in it:
+1) City
+2) Delivery_type
+3) Date_Delivered
+
+I want to create a pivot query that has the format with 14 columns
+1) City (Grouped)
+2) Deliver (Grouped)
+3) Jan (Count the amount of dates for month of Jan)
+4) Feb (Count the amount of dates for month of Feb)
+...
+14) Dec (Count the amount of dates for month of Feb)
+If you can guide me in the right direction I will appreciate it, Thx */
+
+WITH
+ctePreAgg AS
+( --=== Preaggregate the data for an improvement in performance
+ SELECT Year        = DATEPART(yy,Date_Delivered),
+        Month       = DATEPART(mm,Date_Delivered),
+        City,
+        Deliver     = Delivery_Type,
+        MonthCount  = COUNT(*)
+   FROM #TestData--dbo.YourTable --<---<<<< LOOK!  You'll need to change this!
+GROUP BY DATEPART(yy,Date_Delivered),DATEPART(mm,Date_Delivered),City,Delivery_Type
+) --=== Now, pivot the data using a high performance crosstab.
+ SELECT City,
+        Year,
+        Deliver,
+        [Jan] = SUM(CASE WHEN Month =  1 THEN MonthCount ELSE 0 END),
+        [Feb] = SUM(CASE WHEN Month =  2 THEN MonthCount ELSE 0 END),
+        [Mar] = SUM(CASE WHEN Month =  3 THEN MonthCount ELSE 0 END),
+        [Apr] = SUM(CASE WHEN Month =  4 THEN MonthCount ELSE 0 END),
+        [May] = SUM(CASE WHEN Month =  5 THEN MonthCount ELSE 0 END),
+        [Jun] = SUM(CASE WHEN Month =  6 THEN MonthCount ELSE 0 END),
+        [Jul] = SUM(CASE WHEN Month =  7 THEN MonthCount ELSE 0 END),
+        [Aug] = SUM(CASE WHEN Month =  8 THEN MonthCount ELSE 0 END),
+        [Sep] = SUM(CASE WHEN Month =  9 THEN MonthCount ELSE 0 END),
+        [Oct] = SUM(CASE WHEN Month = 10 THEN MonthCount ELSE 0 END),
+        [Nov] = SUM(CASE WHEN Month = 11 THEN MonthCount ELSE 0 END),
+        [Dec] = SUM(CASE WHEN Month = 12 THEN MonthCount ELSE 0 END),
+        [YearTotal] = SUM(MonthCount)
+   FROM ctePreAgg
+  GROUP BY City, Year, Deliver
+  ORDER BY City, Year, Deliver
+;
+--#########################################################################################################
+--
+
+--===== Use a Pivot to do the same thing we did with the Cross Tab
+ SELECT Year,             --(4)
+        [1] AS [1st Qtr], --(3)
+        [2] AS [2nd Qtr],
+        [3] AS [3rd Qtr],
+        [4] AS [4th Qtr],
+        [1]+[2]+[3]+[4] AS Total --(5)
+   FROM (SELECT Year, Quarter,Amount FROM #SomeTable1)  AS src --(1)
+  PIVOT (SUM(Amount) FOR Quarter IN ([1],[2],[3],[4])) AS pvt --(2)
+  ORDER BY Year
+/*
+Ok... let's break that code down and figure out what each part does... 
+the items below have numbers in the code above so you can more easily see what's going on...
+
+1.The FROM clause is actually a derived table. It very simply contains the columns that we want to use in the cross tab from the source table we want to use the pivot on. 
+It will sometimes work as a normal FROM clause with just the table listed instead of a derived table, but most of the time it will not and is unpredictable when it does work.
+
+2.This is the "Pivot" line. It identifies the aggregate to be used, the column to pivot in the FOR clause, and the list of values that 
+we want to pivot in the IN clause... in this case, the quarter number. Also notice that you must treat those as if 
+they were column names. They must either be put in brackets or double quotes (if the quoted identifier setting is ON).
+
+3.This is the pivoted SELECT list. Notice that you have to bring everything in the IN clause from (2) up to the SELECT list. 
+Aliasing the column names is optional but usually a good thing to do just to make the output obvious.
+
+4.You must also bring Year up as the row identifier in the pivot. Think of this as your "anchor" for the rows.
+
+5.Last but not least, if you want a total for each row in the pivot, you can no longer use just an aggregate. 
+Instead, you must add all the columns together.
+*/
