@@ -1,0 +1,70 @@
+
+--****** Object:  Table [Backup]    Script Date: 18.05.2017 08:03:47 ******/
+--******
+--******Backup-Script
+--******
+--******
+-----------------------------------------------------------------------------------------------------------
+DECLARE @Today DATETIME;  
+--SET @Today = '12/5/2007'; 
+SET LANGUAGE German; 
+
+USE [CQP_RAC]
+GO
+/****** alte Backup RAC-Tabellen löschen ****/
+----------------------------------------------------------------------------------------------------------
+DELETE FROM [dbo].[Dcub_ProduktHierarchie_Backup]
+GO
+INSERT INTO [dbo].[Dcub_ProduktHierarchie_Backup]
+	SELECT * FROM [dbo].[Dcub_ProduktHierarchie]
+GO
+----------------------------------------------------------------------------------------------------------
+DELETE FROM  [dbo].[LcubOut_Retouren_angelegt_Backup]
+GO
+INSERT INTO [dbo].[LcubOut_Retouren_angelegt_Backup]
+	SELECT * FROM [dbo].[LcubOut_Retouren_angelegt]
+GO
+----------------------------------------------------------------------------------------------------------
+DELETE FROM  [dbo].[Ocub_Retouren_angelegt_Backup]
+GO
+INSERT INTO [dbo].[Ocub_Retouren_angelegt_Backup]
+	SELECT * FROM [dbo].[Ocub_Retouren_angelegt]
+GO
+----------------------------------------------------------------------------------------------------------
+DELETE FROM [dbo].[Ocub_S1Kundendaten_Backup]
+GO
+INSERT INTO [dbo].[Ocub_S1Kundendaten_Backup]
+	SELECT * FROM [dbo].[Ocub_S1Kundendaten]
+GO
+----------------------------------------------------------------------------------------------------------
+DELETE FROM  [dbo].[Ocub_Umsatz_Backup]
+GO
+INSERT INTO [dbo].[Ocub_Umsatz_Backup]
+	SELECT * FROM [dbo].[Ocub_Umsatz]
+GO
+----------------------------------------------------------------------------------------------------------
+DELETE FROM [dbo].[OcubIn_Retouren_Backup]
+GO
+INSERT INTO [dbo].[OcubIn_Retouren_Backup]
+	SELECT * FROM [dbo].[OcubIn_Retouren]
+GO
+----------------------------------------------------------------------------------------------------------
+DELETE FROM  [dbo].[OcubOut_Retouren_Backup]
+GO
+INSERT INTO [dbo].[OcubOut_Retouren_Backup]
+	SELECT * FROM [dbo].[OcubOut_Retouren]
+GO
+----------------------------------------------------------------------------------------------------------
+DELETE FROM  [dbo].[OcubOut_Umsatz_Backup]
+GO
+INSERT INTO [dbo].[OcubOut_Umsatz_Backup]
+	SELECT * FROM [dbo].[OcubOut_Umsatz]
+GO
+----------------------------------------------------------------------------------------------------------
+/* Aus Restore zurück */
+
+USE [CQP_RAC]
+/*DELETE FROM  [dbo].[OcubOut_Retouren]*/
+INSERT INTO [dbo].[OcubOut_Retouren]
+	SELECT * FROM [CQP_RAC_restore].[dbo].[OcubOut_Retouren]
+
