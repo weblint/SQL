@@ -1,0 +1,251 @@
+USE [CQP_RAC]
+GO
+
+SELECT A.Meldung As [Datensatz-ist-Kandidat-zum-Loeschen],
+		A.Listname
+	-- alternativ: DELETE
+FROM [dbo].[Ocub_S1Kundendaten] As A
+Where A.[Meldung] NOT IN
+
+	(SELECT MIN(X.[Meldung])
+		FROM [dbo].[Ocub_S1Kundendaten] As X
+		GROUP BY X.Meldung)
+
+GO
+------------------------------- diese Daten existieren mehrfach...----------------------
+SELECT MIN(A.[Meldung]) As [Datensatz-soll-erhalten-bleiben]
+
+FROM [dbo].[Ocub_S1Kundendaten] As A LEFT JOIN
+
+	(SELECT X.Meldung, X.Listname
+
+		FROM [dbo].[Ocub_S1Kundendaten] As X
+	
+		GROUP BY X.Meldung, X.Listname
+	
+		HAVING COUNT(*) > 1) As B
+	
+ON A.[Meldung]= B.[Meldung]
+	
+GROUP BY A.Meldung,A.Listname
+
+GO
+--------------------------------------------------------------------------------------------------------------------------
+USE [CQP_RAC]
+GO
+--DELETE FROM [dbo].[Ocub_S1Kundendaten]
+
+SELECT A.Meldung As [Datensatz-ist-Kandidat-zum-Loeschen],
+		A.Listname,A.[Codierung], A.[Meldungsdatum]
+FROM [dbo].[Ocub_S1Kundendaten] As A
+
+Where [Meldung] NOT IN
+
+	(SELECT MIN(X.[Listname])
+		FROM [dbo].[Ocub_S1Kundendaten] As X
+		GROUP BY X.Codierung, X.Meldungsdatum, X.Beschreibung,X.Kunde,X.Listname,X.Ort,X.Kundenauftrag,X.Land)
+GO
+--------------------------------------------------------------------------------------------------------------------------
+--Doppelte Zeilen identifizieren
+USE [CQP_RAC]--prüfen ob Meldungsnummer doppelt vorhanden ist
+GO
+
+SELECT A.[Meldung],A.[Codierung],A.[Meldungsdatum],A.[Listname]
+
+  FROM [dbo].[Ocub_S1Kundendaten] as A
+
+ GROUP BY A.[Meldung],A.[Codierung], A.[Meldungsdatum], A.[Listname]
+HAVING COUNT(*) > 1
+GO
+
+-------------------------------------------------------------------
+--Duplikate finden roh Version
+USE [CQP_RAC]
+GO
+	
+SELECT [Meldung]
+, COUNT([Meldung]) AS [Anzahl-Vorkommen]
+FROM [dbo].[Ocub_S1Kundendaten]
+GROUP BY [Meldung]
+HAVING (COUNT([Meldung]) > 1)
+GO
+-------------------------------------------------------------------------------------------------------------------------
+USE [CQP_RAC]
+GO
+
+SELECT [Meldung]
+      ,[Codierung]
+      ,[Meldungsdatum]
+      ,[Beschreibung]
+      ,[Kunde]
+      ,[Listname]
+      ,[Ort]
+      ,[Kundenauftrag]
+      ,[Land]
+  FROM [dbo].[Ocub_S1Kundendaten]
+  WHERE [Meldung]='300318321'
+GO
+---------------------------------------------------------------------------------------
+USE [CQP_RAC_TEST]
+GO
+	
+DELETE FROM [dbo].[Ocub_S1Kundendaten]
+
+Where [Meldung] NOT IN
+
+	(SELECT MIN(X.[Meldung])
+		FROM [dbo].[Ocub_S1Kundendaten] As X
+		GROUP BY X.Meldung, X.Listname, X.Kunde)
+
+--------------------------------------------------------------------------------------
+--
+--Ermittlung der tatsächlichen Datensätze die gelöscht werden
+--!! Achtung SELECT OF DEATH !!
+-- Nur in einzelnen Teilen verwendbar!!!
+--ab hier
+(SELECT A.[Meldung], A.Meldungsdatum, A.Listname, A.Kunde
+
+FROM [dbo].[Ocub_S1Kundendaten] As A
+
+WHERE [Meldung] IN
+	(SELECT A.[Meldung] As [Datensatz-ist-Kandidat-zum-Loeschen]
+
+	From [dbo].[Ocub_S1Kundendaten] As A INNER JOIN
+	   --ab hier
+		(Select X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+			From [dbo].[Ocub_S1Kundendaten] As X
+			Group By X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+			Having Count(*) > 1) As B
+
+	On 	A.Meldung = B.Meldung
+		And A.Meldungsdatum = B.Meldungsdatum
+		And A.Listname = B.Listname)
+--bis hier
+
+AND [Meldung] Not IN
+--ab hier
+	(SELECT Min(A.[Meldung]) As [Datensatz-soll-erhalten-bleiben]
+
+	From [dbo].[Ocub_S1Kundendaten] As A INNER Join
+	    
+		(Select X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+			From [dbo].[Ocub_S1Kundendaten] As X
+			Group By X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+			Having Count(*) > 1) As B
+
+	On A.Meldung = B.Meldung
+		And A.Meldungsdatum = B.Meldungsdatum
+		And A.Listname = B.Listname
+
+	Group By A.Meldung, A.Meldungsdatum, A.Listname))
+--bis hier
+
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+--!! Achtung SELECT OF DEATH !!
+--[Meldung] Not IN... funktioniert
+(SELECT TOP 10 A.[Meldung], A.Meldungsdatum, A.Listname, A.Kunde
+	FROM [dbo].[Ocub_S1Kundendaten] As A
+	WHERE [Meldung] IN
+		(SELECT A.[Meldung] As [Datensatz-ist-Kandidat-zum-Loeschen]
+		From [dbo].[Ocub_S1Kundendaten] As A INNER JOIN
+			(Select X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+				From [dbo].[Ocub_S1Kundendaten] As X
+				Group By X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+				Having Count(*) > 1) As B
+		On 	A.Meldung = B.Meldung
+			And A.Meldungsdatum = B.Meldungsdatum
+			And A.Listname = B.Listname)
+	AND [Meldung] Not IN
+		(SELECT Min(A.[Meldung]) As [Datensatz-soll-erhalten-bleiben]
+		 From [dbo].[Ocub_S1Kundendaten] As A INNER Join
+			(Select X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+				From [dbo].[Ocub_S1Kundendaten] As X
+				Group By X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+				Having Count(*) > 1) As B
+		On A.Meldung = B.Meldung
+			And A.Meldungsdatum = B.Meldungsdatum
+			And A.Listname = B.Listname
+	Group By A.Meldung, A.Meldungsdatum, A.Listname))
+--~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+-- ---------------------------------------------------------------------------
+-- Zeigt alle Benutzertabellen mit zugehöriger Zeilenanzahl
+-- i.index_id < 2 filtert nach "clustered index" (1) und "hash table" (0).
+-- Entfernen des is_ms_shipped = 0 filter, um Systemtabellen anzuzeigen...
+-- ORDER BY o.name
+-- ORDER BY ddps.row_count
+-- ---------------------------------------------------------------------------
+USE [CQP_RAC]
+Go
+SELECT o.name, ddps.row_count
+FROM sys.indexes AS i
+INNER JOIN sys.objects AS o
+ON i.OBJECT_ID = o.OBJECT_ID
+INNER JOIN sys.dm_db_partition_stats AS ddps
+ON i.OBJECT_ID = ddps.OBJECT_ID
+AND i.index_id = ddps.index_id
+ WHERE i.index_id < 2
+AND o.is_ms_shipped = 0
+--AND o.name like '%QW%'
+AND o.name like '%cub%'
+ORDER BY ddps.row_count desc
+Go
+
+/*Alle Tabellen auslesen */
+SELECT o.name, ddps.row_count
+FROM sys.indexes AS i
+INNER JOIN sys.objects AS o
+ON i.OBJECT_ID = o.OBJECT_ID
+INNER JOIN sys.dm_db_partition_stats AS ddps
+ON i.OBJECT_ID = ddps.OBJECT_ID
+AND i.index_id = ddps.index_id
+ WHERE i.index_id < 2
+AND o.is_ms_shipped = 0
+AND o.name like '%QW%'
+--AND o.name like '%cub%'
+ORDER BY ddps.row_count desc
+Go
+
+
+DELETE FROM  [dbo].[Ocub_S1Kundendaten]
+GO
+INSERT INTO [dbo].[Ocub_S1Kundendaten]
+	SELECT * FROM [dbo].[Ocub_S1Kundendaten_Backup]
+GO
+
+---------------------------------------------------------------------------------------------
+--Doppelte Datensätze
+(SELECT A.[Meldung], A.Meldungsdatum, A.Listname, A.Kunde
+	FROM [dbo].[Ocub_S1Kundendaten] As A
+	WHERE [Meldung] IN
+		(SELECT A.[Meldung] As [Datensatz-ist-Kandidat-zum-Loeschen]
+		From [dbo].[Ocub_S1Kundendaten] As A LEFT JOIN
+			(Select X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+				From [dbo].[Ocub_S1Kundendaten] As X
+				Group By X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+				Having Count(*) > 1) As B
+		On 	A.Meldung = B.Meldung
+			And A.Meldungsdatum = B.Meldungsdatum
+			And A.Listname = B.Listname)
+	AND [Meldung] Not IN
+		(SELECT Min(A.[Meldung]) As [Datensatz-soll-erhalten-bleiben]
+		 From [dbo].[Ocub_S1Kundendaten] As A INNER Join
+			(Select X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+				From [dbo].[Ocub_S1Kundendaten] As X
+				Group By X.Meldung, X.Meldungsdatum, X.Listname, X.Kunde
+				Having Count(*) > 1) As B
+		On A.Meldung = B.Meldung
+			And A.Meldungsdatum = B.Meldungsdatum
+			And A.Listname = B.Listname
+	Group By A.Meldung, A.Meldungsdatum, A.Listname))
+
+	USE [CQP_RAC]
+GO
+
+SELECT *
+  FROM [dbo].[Ocub_S1Kundendaten]
+GO
+
+
+
+
