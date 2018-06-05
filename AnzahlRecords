@@ -1,0 +1,43 @@
+-------------------------------------------------------------------------------------------
+USE [CQP_RAC]
+GO
+DROP TABLE [dbo].[AnzahlRecords]
+GO
+
+-------------------------------------------------------------------------------------------
+/****** Object:  Table [dbo].[AnzahlRecords]    Script Date: 05.06.2018 09:56:21 ******/
+SET ANSI_NULLS ON
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[AnzahlRecords](
+	[TableName] [varchar](50) NULL,
+	[Records] [integer] NULL,
+	[Datum] [varchar](50) NULL
+) ON [PRIMARY]
+
+GO
+-------------------------------------------------------------------------------------------
+INSERT INTO [dbo].[AnzahlRecords]
+	(TableName,Records,Datum)
+		(SELECT o.name, ddps.row_count, GETDATE() as Datum
+			FROM sys.indexes AS i INNER JOIN sys.objects AS o
+				ON i.OBJECT_ID = o.OBJECT_ID INNER JOIN sys.dm_db_partition_stats AS ddps
+				ON i.OBJECT_ID = ddps.OBJECT_ID AND i.index_id = ddps.index_id
+			WHERE i.index_id < 2
+			AND o.is_ms_shipped = 0
+			AND o.name like '%QW%'
+		)
+Go
+-------------------------------------------------------------------------------------------
+USE [CQP_RAC]
+GO
+
+SELECT [TableName]
+      ,[Records]
+      ,[Datum]
+  FROM [dbo].[AnzahlRecords]
+  ORDER BY Records desc
+GO
+-------------------------------------------------------------------------------------------
