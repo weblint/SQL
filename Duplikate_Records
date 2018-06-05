@@ -1,0 +1,85 @@
+USE [CQP_RAC]
+GO
+
+/****** Object:  Table [dbo].[QW_tbl_scrn]    Script Date: 05.06.2018 09:09:45 ******/
+DROP TABLE [dbo].[QW_tbl_scrn]
+GO
+
+
+USE [CQP_RAC]
+GO
+
+/****** Object:  Table [dbo].[QW_tbl_scrn]    Script Date: 05.06.2018 08:50:56 ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[QW_tbl_scrn](
+	[ID] [int] IDENTITY(1,1) NOT NULL,
+	[lfd] [int] NULL,
+	[scrn] [image] NULL
+) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY]
+
+GO
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--###################################################
+-- scrn -> scrn_tmp
+DELETE FROM [dbo].[scrn Backup]
+GO
+set IDENTITY_INSERT [dbo].[QW_tbl_scrn_tmp] ON
+GO
+INSERT INTO [dbo].[QW_tbl_scrn_tmp]
+			(ID,lfd,scrn)
+	SELECT ID,lfd,scrn FROM [dbo].[QW_tbl_scrn]
+GO
+--###################################################
+USE [CQP_RAC]
+GO
+
+SELECT [ID]
+      ,[lfd]
+      ,[scrn]
+  FROM [dbo].[QW_tbl_scrn]
+GO
+-----------------------------------------------------
+-- scrn_tmp -> scrn
+set IDENTITY_INSERT [dbo].[QW_tbl_scrn] ON
+GO
+--set IDENTITY_INSERT [dbo].[QW_tbl_scrn_tmp] ON
+--GO
+INSERT INTO [dbo].[QW_tbl_scrn]
+			(ID,lfd,scrn)
+	SELECT ID,lfd,scrn FROM [dbo].[QW_tbl_scrn_tmp]
+GO
+
+
+
+USE [CQP_RAC]
+GO
+
+SELECT [ID]
+      ,[lfd]
+      ,[scrn]
+  FROM [dbo].[QW_tbl_scrn_tmp]
+GO
+
+
