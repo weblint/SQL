@@ -1,0 +1,13 @@
+--RESTORE 
+---------------------------------------------------------------
+SET IDENTITY_INSERT [CQP_RAC].[dbo].[QW_tbl_scrn] ON;
+INSERT INTO [CQP_RAC].[dbo].[QW_tbl_scrn]
+           ([ID],
+                [lfd]
+           ,[scrn])
+ 
+   SELECT [ID]
+      ,[lfd]
+      ,[scrn]
+  FROM [CQP_RAC_TEMP].[dbo].[QW_tbl_scrn]
+GO
